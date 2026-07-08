@@ -1,3 +1,5 @@
 torch
 scikit-learn
 matplotlib
+huggingface
+sentence-transformers

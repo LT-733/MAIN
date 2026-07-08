@@ -2,6 +2,7 @@ import sklearn
 import sklearn.cluster as cluster
 import sklearn.manifold as manifold
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 
 dummy = [
@@ -18,6 +19,7 @@ dummy = [
 ]
 
 def cluster_result(final):
+    """Does Agglomerative clustering using sklearn and returns a PathCollection object that is a plot"""
     try:
         k = int(input("tell us how many clusters you want to form, where the number of clusters has to be at least 2, and at most the number of models you are testing: "))
     except ValueError:
