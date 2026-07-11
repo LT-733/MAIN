@@ -46,7 +46,7 @@ def get_chat_content() -> list[dict]:
                 curres = client.chat.send(
                     model=name,
                     messages= [
-                        {"role": "system", "content": "Answer the questions concisely and precisely. You are to use only plain text."},
+                        {"role": "system", "content": "Answer the questions concisely and precisely. You are to use only plain text, do NOT use markdown or LaTex."},
                         {"role": "user", "content": user_msg}
                     ],
                 )
