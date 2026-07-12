@@ -5,7 +5,10 @@ import os
 import time
 from openrouter import OpenRouter
 import dotenv
-dotenv.load_dotenv("./.env")
+try:
+    dotenv.load_dotenv("./.env")
+except Exception:
+    pass
 
 def get_question_and_answer() -> list[str]:
     user_msg: str = str(input())
@@ -25,44 +28,68 @@ def get_available_models() -> dict:
         index += 1
     return model_lookup
 
-def get_chat_content(question: str="") -> list[dict]:
-    user_msg: str = str(input("Ask a question to our models!\n"))
+def get_available_models_list() -> list:
+    free_models = []
+    response = requests.get(url="https://openrouter.ai/api/v1/models?extra=free&output_modalities=text")
+    response = response.json()
+
+    free_models=[r["id"] for r in response["data"] if (float(r["pricing"]["prompt"]) == 0 and r["architecture"]["modality"]=="text->text")]
+    return free_models
+
+def choose_models(model_lookup: dict):
+    print("you have the access to the following models:")
+    for x, y in model_lookup.items():
+        print(f"{x}: {y}")
+    print("select up to five of them by their indicies: ")
+    n = int(input("first off, how many would you like to select?\n"))
+    lookup_idx: list = []
+    print("Now, select the models you want to use by indexing them.\n")
+    for i in range(n):
+        lookup_idx.append(int(input()))
+    chosen_models: list = []
+    for idx in lookup_idx:
+        try:
+            chosen_models.append(model_lookup[idx])
+        except Exception as e:
+            print(f"Error: {e}")
+    return chosen_models
+
+def get_chat_content(question: str="", chosen_models: list=[], API_key: str="") -> tuple[list[dict], list[str]]:
+    user_msg: str = "What is a Linked List in Computer Science?"
     # baseline_ans: str = str(input("Provide a baseline answer!\n"))
     model_responses: list[dict] = []
+    errors: list[str] = []
 
-    with OpenRouter(api_key=os.getenv("API_key")) as client:
+    if API_key == "":
+        try:
+            API_key = str(os.getenv("API_key"))
+        except Exception:
+            pass
+
+    with OpenRouter(api_key=API_key) as client:
         model_lookup = get_available_models()
         
-        print("you have the access to the following models:")
-        for x, y in model_lookup.items():
-            print(f"{x}: {y}")
-        print("select up to five of them by their indicies: ")
-        n = int(input("first off, how many would you like to select?\n"))
-        lookup_idx: list = []
-        print("Now, select the models you want to use by indexing them.\n")
-        for i in range(n):
-            lookup_idx.append(int(input()))
-        chosen_models: list = []
-        for idx in lookup_idx:
-            try:
-                chosen_models.append(model_lookup[idx])
-            except Exception as e:
-                print(f"Error: {e}")
+        if not chosen_models:
+            chosen_models = choose_models(model_lookup)
         print(chosen_models)
         time.sleep(5)
         for name in chosen_models:
+            print(f"Sending request to: {name}")
             try:
                 curres = client.chat.send(
                     model=name,
                     messages= [
-                        {"role": "system", "content": "Answer the questions concisely and precisely. You are to use only plain text, do NOT use markdown or LaTex."},
+                        {"role": "system", "content": "Answer the questions concisely and precisely. You are to use only plain text, do NOT use LaTex."},
                         {"role": "user", "content": user_msg if question=="" else question}
                     ],
                 )
                 model_responses.append({"model": name, "text": curres.choices[0].message.content})
             except Exception as e:
                 print(f"error occured: {e}")
-                model_responses.append({"model": name, "test": str(e)})
+                model_responses.append({"model": name, "text": str(e)})
+                errors.append(str(e))
+                continue
         print(model_responses)
-    return model_responses
+        print(errors)
+    return model_responses, errors
     

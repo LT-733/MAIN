@@ -18,12 +18,8 @@ dummy = [
     [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 0.0]
 ]
 
-def cluster_result(final):
+def cluster_result(final, k: int):
     """Does Agglomerative clustering using sklearn and returns a PathCollection object that is a plot"""
-    try:
-        k = int(input("tell us how many clusters you want to form, where the number of clusters has to be at least 2, and at most the number of models you are testing: "))
-    except ValueError:
-        k = int(input("That was not an int, try again: "))
     
     cluster_tool = cluster.AgglomerativeClustering(n_clusters=k, metric="precomputed", linkage="average")
     grid_transform = manifold.MDS(n_components=2, dissimilarity="precomputed")
@@ -35,6 +31,10 @@ def cluster_result(final):
 
 # Testing function, will not be used in production
 if __name__ == "__main__":
-    result, labels = cluster_result(dummy)
+    try:
+        k = int(input("tell us how many clusters you want to form, where the number of clusters has to be at least 2, and at most the number of models you are testing: "))
+    except ValueError:
+        k = int(input("That was not an int, try again: "))
+    result, labels = cluster_result(dummy, k=k)
     plot = plt.scatter(result[:, 0], result[:, 1], c=labels)
     plt.show()

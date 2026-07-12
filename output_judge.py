@@ -1,21 +1,13 @@
 import numpy as np
-import transformers
-from sentence_transformers import SentenceTransformer, SimilarityFunction
-import torch
 import clustering
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import get_outputs
 import math
 
-device = "cuda" if torch.cuda.is_available() else ("mps" if torch.mps.is_available() else "cpu")
-print(f"using {device} as performance accelerator")
-encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=device, similarity_fn_name=SimilarityFunction.COSINE)
-model = transformers.AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
-tokenizer = transformers.AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 
-model = model.to(device=device)
-
-text_outputs: list[dict] = get_outputs.get_chat_content()
+# test content, will not be used in production
 baseline_ans: str = "In computer science, a linked list is a linear collection of data elements whose order is not given by their physical placement in memory. Instead, each element points to the next. It is a data structure consisting of a collection of nodes which together represent a sequence. In its most basic form, each node contains data, and a reference (in other words, a link) to the next node in the sequence. This structure allows for efficient insertion or removal of elements from any position in the sequence during iteration."
 
 # This runs the gram-schmidt process on the output we pulled from the second-to-last layer of the embedding model
@@ -27,6 +19,7 @@ def gramschmidt_process(embedding_matrix: list[list], device, noise_threshold: f
       and your hardware acceleration device of choice
       
       returns the lists of new semantic spikes on token outputs"""
+    import torch
     orthogonal_basis: list = []
     results: list[float] = []
     for t in range(len(embedding_matrix)):
@@ -50,16 +43,18 @@ def gramschmidt_process(embedding_matrix: list[list], device, noise_threshold: f
 
 # This uses our autotokenizer taken from huggingface and throw the tokenized text outputs into the embedding model
 # and it does some cosine similarity score stuff with the embedded baseline output
-def get_semantic_drift(tst_model, given_tokenizer, outputs: list[dict], ans: str) -> dict:
+def get_semantic_drift(device, tst_model, given_tokenizer, outputs: list[dict], ans: str) -> dict:
     """Takes the model (in this case miniLM/L6/V2), and a given tokenizer (in this case Huggingface's Autotokenizer), and the text output you got from your favorite LLMs and your baseline answer that you want those outputs to match
 
        Does some cosine similarity calculation token by token
 
        Returns a dictionary consisting of the following:
        {
-           a matplotlib figure object that is a heatmap which matches the semantic similarity token by token between each LLM's outputs and the answer,
-           a tuple that has the name of each LLM and the final semantic matching data used to plot the heat map, alongside the raw N by 384 matrix used for the gram schmidt process (in that order!)
+           a matplotlib figure object that is a heatmap which matches the semantic similarity token by token between each LLM's outputs and the answer
+
+           a list of tuple that has the name of each LLM and the final semantic matching data used to plot the heat map, alongside the raw N by 384 matrix used for the gram schmidt process (in that order!)
        }"""
+    import torch
     activation_storage: dict = {}
     target_layer = tst_model.encoder.layer[5]
     model_names = [output['model'] for output in outputs]
@@ -114,11 +109,12 @@ def get_semantic_drift(tst_model, given_tokenizer, outputs: list[dict], ans: str
         "drifts": final_drifts
     }
 
-def get_distance_matrix(model_out: list[dict], std_ans: str) -> tuple[list[list], list]:
+def get_distance_matrix(encoder, model_out: list[dict], std_ans: str) -> tuple[list[list], list]:
     """The easiest of output_judge
       does a general cosine similarity score between the overall embedding output of each LLM 
       and the overall embedding output of the baseline answer"""
 
+    from sentence_transformers import SentenceTransformer, SimilarityFunction
     embeddings: list[torch.Tensor] = []
 
     for output in model_out:
@@ -142,14 +138,29 @@ def get_distance_matrix(model_out: list[dict], std_ans: str) -> tuple[list[list]
 
 # Testing function, will not be used in production
 if __name__ == "__main__":
-    dists, _ = get_distance_matrix(text_outputs, baseline_ans)
+    import torch, transformers
+    from sentence_transformers import SentenceTransformer, SimilarityFunction
+    device = "cuda" if torch.cuda.is_available() else ("mps" if torch.mps.is_available() else "cpu")
+    print(f"using {device} as performance accelerator")
+    encoder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=device, similarity_fn_name=SimilarityFunction.COSINE)
+    model = transformers.AutoModel.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+    tokenizer = transformers.AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+
+    model = model.to(device=device)
+
+    text_outputs: list[dict] = get_outputs.get_chat_content()[0]
+    dists, _ = get_distance_matrix(encoder=encoder, model_out=text_outputs, std_ans=baseline_ans)
     f, (fig1, fig2) = plt.subplots(1, 2)
     fig1.bar(x= [output["model"] for output in text_outputs], height=_)
     fig1.tick_params(axis='x', rotation=45)
     plt.sca(fig2)
-    result, labels = clustering.cluster_result(dists)
+    try:
+        k = int(input("tell us how many clusters you want to form, where the number of clusters has to be at least 2, and at most the number of models you are testing: "))
+    except ValueError:
+        k = int(input("That was not an int, try again: "))
+    result, labels = clustering.cluster_result(dists, k=k)
     fig2 = plt.scatter(result[:, 0], result[:, 1], c=labels)
-    drift_results = get_semantic_drift(tst_model=model, given_tokenizer=tokenizer, outputs=text_outputs, ans=baseline_ans)
+    drift_results = get_semantic_drift(device=device, tst_model=model, given_tokenizer=tokenizer, outputs=text_outputs, ans=baseline_ans)
     drift_results["figure"].show()
     # anotherfig, axs = plt.subplots(1, len(drift_results["drifts"]), squeeze=False)
     # b: int = 0

@@ -7,3 +7,7 @@ pywebview
 transformers
 openrouter
 numpy
+keyring
+scipy
+requests
+pyinstaller
