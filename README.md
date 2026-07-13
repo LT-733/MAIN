@@ -4,7 +4,7 @@ The whole reason this is called main is because when I used pyinstaller the defa
 <img width="1508" height="952" alt="image" src="https://github.com/user-attachments/assets/22086be1-ff48-4d86-88c9-14039432cb1f" />
 
 ## Why does it exist?
-Mainly to prove the fact that I know more than writing PyTorch wrappers, but its practical purpose is for people to test out dirt cheap language models, and use a bit of linear algebra to figure out which one is the best for them. 
+Mainly to prove the fact that I know more than just writing PyTorch wrappers, but its practical purpose is for people to test out dirt cheap language models, and use a bit of linear algebra to figure out which one is the best for them. 
 
 Most people who are not software engineers don't care about what Fable 5 is capable of and what loop engineering did to ruin some other framework's codebase. 
 They just want the maximum amount of information for the least amount of tokens. The more cost-effective, the better. I tried to desin this in a more un-technical way, and make the UI as simple as possible, but there are things I can still work on.
